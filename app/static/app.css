@@ -174,6 +174,21 @@ h1 {
   transition: border-color .15s ease, box-shadow .15s ease;
 }
 .field input:focus { outline: none; border-color: var(--blue); box-shadow: 0 0 0 3px rgba(31, 96, 139, .12); }
+.field textarea {
+  width: 100%;
+  min-height: 96px;
+  padding: 10px 12px;
+  border: 1px solid #c8d5e0;
+  border-radius: 7px;
+  color: var(--ink);
+  background: #fff;
+  font: inherit;
+  font-size: 14px;
+  line-height: 1.6;
+  resize: vertical;
+  transition: border-color .15s ease, box-shadow .15s ease;
+}
+.field textarea:focus { outline: none; border-color: var(--blue); box-shadow: 0 0 0 3px rgba(31, 96, 139, .12); }
 .field-note { display: block; margin-top: 6px; color: var(--muted); font-size: 11px; line-height: 1.5; }
 .submit-button {
   display: inline-flex;
@@ -376,6 +391,118 @@ h1 {
 .button-secondary:hover { background: var(--blue-soft); }
 .empty-copy { margin: 0; color: var(--muted); font-size: 13px; }
 
+/* ---- Region screening (/screen + home entry) --------------------------- */
+
+.hero-slim { padding: 54px 0 36px; }
+.lede-sub { margin-top: 14px; font-size: 14px; }
+.lede-sub a { color: var(--blue); font-weight: 600; }
+
+.screen-entry {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(320px, .85fr);
+  gap: clamp(24px, 4vw, 48px);
+  align-items: start;
+  margin-top: 22px;
+  padding: clamp(20px, 3vw, 30px);
+  border: 1px solid #cfdde8;
+  border-radius: var(--radius);
+  background: linear-gradient(160deg, #f4f9fc, #ffffff 58%);
+  box-shadow: 0 10px 30px rgba(18, 41, 61, .05);
+}
+.screen-entry-copy h2 { margin: 0; color: var(--navy-deep); font-size: clamp(19px, 2.2vw, 26px); letter-spacing: -.02em; }
+.screen-entry-copy p { max-width: 560px; margin: 12px 0 0; color: var(--ink-soft); font-size: 13px; line-height: 1.8; }
+.screen-preset-row { display: grid; gap: 7px; margin-top: 16px; }
+.preset-compact { background: rgba(255, 255, 255, .85); }
+.screen-mini-form { display: grid; gap: 12px; }
+.screen-mini-form .submit-button { width: 100%; }
+
+.screen-form { grid-template-columns: minmax(280px, 1.4fr) minmax(260px, 1fr) auto; }
+.screen-form .field-coverage { min-width: 0; }
+
+.screen-summary {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1px;
+  overflow: hidden;
+  margin-top: 18px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--line-soft);
+}
+.summary-block { padding: 16px 18px; background: var(--paper); }
+.summary-value { margin: 2px 0 0; color: var(--navy-deep); font-size: 30px; font-weight: 800; line-height: 1.15; font-variant-numeric: tabular-nums; }
+.summary-small { font-size: 15px; font-weight: 650; color: var(--navy); }
+.summary-note { margin: 4px 0 0; color: var(--muted); font-size: 11px; line-height: 1.6; }
+.summary-candidate { border-top: 3px solid var(--green); }
+.summary-review { border-top: 3px solid var(--amber); }
+.summary-outside { border-top: 3px solid #8a94a3; }
+
+.coverage-strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 14px;
+  padding: 12px 16px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: rgba(255, 255, 255, .72);
+}
+.coverage-chip {
+  padding: 4px 11px;
+  border: 1px solid #bfd4e4;
+  border-radius: 999px;
+  color: var(--navy);
+  background: var(--blue-soft);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.lot-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.lot-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px 18px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fbfdfe;
+}
+.lot-candidate { border-top: 4px solid var(--green); }
+.lot-review { border-top: 4px solid var(--amber); }
+.lot-head { display: flex; align-items: center; gap: 10px; font-size: 14px; color: var(--navy-deep); }
+.lot-badge { flex: none; padding: 3px 9px; border-radius: 999px; font-size: 11px; font-weight: 700; }
+.badge-candidate { color: var(--green); background: var(--green-soft); }
+.badge-review { color: var(--amber); background: var(--amber-soft); }
+.place-list { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.place-list li {
+  padding: 9px 11px;
+  border: 1px solid var(--line-soft);
+  border-radius: 7px;
+  background: #fff;
+}
+.place-raw { display: block; color: var(--ink); font-size: 13px; font-weight: 600; line-height: 1.6; }
+.place-meta { display: flex; flex-wrap: wrap; gap: 6px 10px; margin-top: 4px; font-size: 11px; }
+.place-scope { color: var(--muted); }
+.place-region { font-weight: 650; }
+.region-ok { color: var(--green); }
+.region-warn { color: var(--amber); }
+.lot-reason { margin: 0; color: var(--ink-soft); font-size: 12px; line-height: 1.7; }
+.lot-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+  margin-top: auto;
+  padding-top: 10px;
+  border-top: 1px dashed var(--line);
+}
+.lot-sources { display: flex; flex-wrap: wrap; gap: 4px 14px; }
+.lot-sources a { color: var(--blue); font-size: 12px; text-decoration: none; font-weight: 600; }
+.lot-sources a:hover { text-decoration: underline; }
+.lot-foot .button-secondary { padding: 6px 12px; font-size: 12px; white-space: nowrap; }
+
 .app-footer { margin-top: 40px; padding: 24px 0 34px; border-top: 1px solid var(--line); background: rgba(255, 255, 255, .54); }
 .footer-inner { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px 24px; color: var(--muted); font-size: 11px; }
 .footer-inner p { margin: 0; }
@@ -384,10 +511,14 @@ h1 {
   .hero { grid-template-columns: 1fr; gap: 30px; padding-top: 42px; }
   .demo-card { max-width: 620px; }
   .check-form { grid-template-columns: 1fr 1fr; }
+  .screen-form { grid-template-columns: 1fr; }
   .field-url { grid-column: 1 / -1; }
   .submit-button { width: 100%; grid-column: 1 / -1; }
   .result-layout { grid-template-columns: 1fr; }
   .side-panel { grid-template-columns: repeat(3, 1fr); gap: 1px; }
+  .screen-entry { grid-template-columns: 1fr; }
+  .screen-summary { grid-template-columns: repeat(2, 1fr); }
+  .lot-grid { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 680px) {

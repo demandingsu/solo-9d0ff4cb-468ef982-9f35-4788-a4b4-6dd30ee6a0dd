@@ -14,6 +14,10 @@
       <li>严格排除同项目其他标段</li>
       <li>终止后不展示旧时间为有效</li>
     </ul>
+    <p class="lede lede-sub">
+      只承接部分区县的工程？可先用<a href="/screen">地域初筛</a>按履约地点过滤公告目录，
+      再对候选标段逐一核验截标时间。
+    </p>
   </div>
 
   <aside class="demo-card">
@@ -21,7 +25,7 @@
       <span class="demo-dot"></span>
       <div>
         <strong>离线演示，已内置</strong>
-        <p>无需连接外网，示例公告分处第 1–3 页。</p>
+        <p>无需连接外网，示例公告分处第 1–5 页。</p>
       </div>
     </div>
     <div class="preset-list">
@@ -68,6 +72,46 @@
     <span aria-hidden="true">→</span>
   </button>
 </form>
+
+<section class="screen-entry" aria-labelledby="screen-entry-heading">
+  <div class="screen-entry-copy">
+    <p class="eyebrow">地域初筛</p>
+    <h2 id="screen-entry-heading">先按履约地点筛一遍公告目录</h2>
+    <p>
+      输入公告目录和企业覆盖的完整省/市/区县，沿分页读取招标公告，按项目、标段提取施工或交付地点：
+      全部地点落在覆盖区县才列为候选；归属不清的列待核，不猜测。
+    </p>
+    <div class="screen-preset-row">
+      {% for preset in screen_presets %}
+      <a class="preset preset-compact" href="{{ preset.href }}">
+        <span>
+          <strong>{{ preset.name }}</strong>
+          <small>{{ preset.note }}</small>
+        </span>
+        <span class="preset-arrow" aria-hidden="true">→</span>
+      </a>
+      {% endfor %}
+    </div>
+  </div>
+  <form class="screen-mini-form" method="get" action="/screen" aria-label="履约地点地域初筛">
+    <div class="field">
+      <label for="screen_list_url">原公告目录地址</label>
+      <input id="screen_list_url" name="list_url" type="text" required
+             value="{{ demo_list_url }}" placeholder="https://example.com/notices?page=1"
+             autocomplete="off" spellcheck="false">
+    </div>
+    <div class="field">
+      <label for="screen_coverage">企业覆盖的省/市/区县</label>
+      <textarea id="screen_coverage" name="coverage" rows="3" required
+                placeholder="云洲省云州市滨河区&#10;云洲省云州市西岭县"
+                spellcheck="false"></textarea>
+    </div>
+    <button class="submit-button" type="submit">
+      开始初筛
+      <span aria-hidden="true">→</span>
+    </button>
+  </form>
+</section>
 
 {% if form_error %}
 <div class="alert alert-error" role="alert">

@@ -1,0 +1,298 @@
+{% extends "base.html" %}
+{% block title %}{% if result %}地域初筛结果 · {% endif %}履约地点地域初筛{% endblock %}
+{% block content %}
+<section class="hero hero-slim">
+  <div class="hero-copy">
+    <p class="eyebrow">投标专员 · 地域初筛</p>
+    <h1>只承接几个区县？先按履约地点筛一遍。</h1>
+    <p class="lede">
+      输入原公告目录地址和企业覆盖的完整省/市/区县，工具沿同站分页读取招标公告，
+      按项目、标段提取施工或交付地点：同一标段的全部履约地点都落在覆盖区县才列为候选；
+      地点缺少上级区划、归属不清的一律列待核，不猜测归属。
+    </p>
+    <ul class="feature-list">
+      <li>代理机构地址不算项目地点</li>
+      <li>共用地点只补给无专属地点的标段</li>
+      <li>抓取失败即标整轮不完整</li>
+    </ul>
+  </div>
+
+  <aside class="demo-card">
+    <div class="demo-card-head">
+      <span class="demo-dot"></span>
+      <div>
+        <strong>离线演示，已内置</strong>
+        <p>示例公告分处第 1–4 页，含多标段与地址混淆样例。</p>
+      </div>
+    </div>
+    <div class="preset-list">
+      {% for preset in screen_presets %}
+      <a class="preset" href="{{ preset.href }}">
+        <span>
+          <strong>{{ preset.name }}</strong>
+          <small>{{ preset.note }}</small>
+        </span>
+        <span class="preset-arrow" aria-hidden="true">→</span>
+      </a>
+      {% endfor %}
+    </div>
+    <p class="demo-hint">
+      示例站地址由容器内网提供；结果中的来源链接已自动转为本站
+      <a href="{{ demo_public_url }}" target="_blank" rel="noopener">/demo</a> 代理，断网也能打开。
+    </p>
+  </aside>
+</section>
+
+<form class="check-form screen-form" method="get" action="/screen" aria-label="履约地点地域初筛">
+  <div class="field field-url">
+    <label for="list_url">原公告目录地址</label>
+    <input id="list_url" name="list_url" type="text" required
+           value="{{ form.list_url or demo_list_url }}"
+           placeholder="https://example.com/notices?page=1"
+           autocomplete="off" spellcheck="false">
+    <span class="field-note">请填写公告目录第一页的完整地址，工具会自行沿“下一页”抓取并读取每个详情页。</span>
+  </div>
+  <div class="field field-coverage">
+    <label for="coverage">企业覆盖的省/市/区县</label>
+    <textarea id="coverage" name="coverage" rows="3" required
+              placeholder="云洲省云州市滨河区&#10;云洲省云州市西岭县"
+              spellcheck="false">{{ form.coverage or '' }}</textarea>
+    <span class="field-note">每行一个完整“省+市+区县”，也可用顿号、逗号或分号分隔；缺少上级区划的条目不会生效。</span>
+  </div>
+  <button class="submit-button" type="submit">
+    开始初筛
+    <span aria-hidden="true">→</span>
+  </button>
+</form>
+
+{% if form_error %}
+<div class="alert alert-error" role="alert">
+  <strong>无法开始初筛</strong>
+  <p>{{ form_error }}</p>
+</div>
+{% endif %}
+
+{% if result %}
+<section class="result-section" aria-labelledby="screen-heading">
+  <div class="section-heading">
+    <div>
+      <p class="eyebrow">初筛结果</p>
+      <h2 id="screen-heading">覆盖 {{ result.coverage|length }} 个区县 · {{ result.notice_count }} 条招标公告</h2>
+    </div>
+    <span class="timestamp">本次实时抓取</span>
+  </div>
+
+  {% if not result.complete %}
+  <div class="alert alert-unknown" role="alert">
+    <strong>本轮抓取不完整，结果可能不全</strong>
+    <p>部分列表页或详情页未能读取。以下候选与待核仅基于已成功读取的页面，<strong>不能据此排除任何未读到的标段，也不能视为“没有候选”</strong>。请处理下列失败地址后重新初筛。</p>
+    {% if result.failures %}
+    <div class="failure-list">
+      <p class="failure-title">未能完成读取的地址：</p>
+      <ul>
+        {% for failure in result.failures %}
+        <li>
+          <span class="failure-reason">
+            {% if failure.stage == 'list' %}列表页{% else %}详情页{% endif %} · {{ failure.reason }}
+          </span>
+          <a href="{{ failure.url }}" target="_blank" rel="noopener">{{ failure.url }}</a>
+        </li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  {% if result.coverage_warnings or result.warnings %}
+  <div class="alert alert-warning">
+    <strong>需要留意的提示</strong>
+    <ul>
+      {% for warning in result.coverage_warnings %}<li>{{ warning }}</li>{% endfor %}
+      {% for warning in result.warnings %}<li>{{ warning }}</li>{% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+
+  <div class="screen-summary">
+    <div class="summary-block summary-candidate">
+      <p class="side-label">候选标段</p>
+      <p class="summary-value">{{ result.counts.candidate }}</p>
+      <p class="summary-note">全部履约地点落在覆盖区县</p>
+    </div>
+    <div class="summary-block summary-review">
+      <p class="side-label">待核标段</p>
+      <p class="summary-value">{{ result.counts.review }}</p>
+      <p class="summary-note">地点归属不清或未载明，需人工确认</p>
+    </div>
+    <div class="summary-block summary-outside">
+      <p class="side-label">范围外标段</p>
+      <p class="summary-value">{{ result.counts.outside }}</p>
+      <p class="summary-note">存在覆盖范围外的履约地点</p>
+    </div>
+    <div class="summary-block">
+      <p class="side-label">抓取范围</p>
+      <p class="summary-value summary-small">{{ result.searched_pages|length }} 个目录页 · {{ result.detail_page_count }} 个详情页</p>
+      <p class="summary-note">{% if result.complete %}整轮读取完整{% else %}整轮读取不完整{% endif %}</p>
+    </div>
+  </div>
+
+  <div class="coverage-strip">
+    <span class="side-label">本次覆盖区县</span>
+    {% for region in result.coverage %}<span class="coverage-chip">{{ region }}</span>{% endfor %}
+  </div>
+
+  <div class="content-card">
+    <div class="card-heading">
+      <div>
+        <p class="eyebrow">候选标段</p>
+        <h3>全部履约地点均落在覆盖区县</h3>
+      </div>
+      <span class="muted-note">投标状态请逐个点“截标核对”确认</span>
+    </div>
+    {% if result.candidates %}
+    <div class="lot-grid">
+      {% for lot in result.candidates %}
+      <article class="lot-card lot-candidate">
+        <header class="lot-head">
+          <span class="lot-badge badge-candidate">候选</span>
+          <strong>{{ lot.project_no }} · 标段 {{ lot.section_no }}</strong>
+        </header>
+        <ul class="place-list">
+          {% for place in lot.places %}
+          <li>
+            <span class="place-raw">{{ place.raw }}</span>
+            <span class="place-meta">
+              <span class="place-scope">{{ place.scope_label }}</span>
+              {% if place.region_label %}<span class="place-region region-ok">归属 {{ place.region_label }}</span>{% endif %}
+            </span>
+          </li>
+          {% endfor %}
+        </ul>
+        <p class="lot-reason">{{ lot.reason }}</p>
+        <footer class="lot-foot">
+          <span class="lot-sources">
+            {% for source in lot.sources %}
+            <a href="{{ source.url }}" target="_blank" rel="noopener">来源公告 ↗</a>
+            {% endfor %}
+          </span>
+          {% if lot.check_url %}
+          <a class="button-secondary" href="{{ lot.check_url }}">截标核对 →</a>
+          {% endif %}
+        </footer>
+      </article>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p class="empty-copy">
+      {% if result.complete %}
+      本轮完整读取了 {{ result.notice_count }} 条招标公告，未发现全部履约地点都落在覆盖区县的标段。
+      {% else %}
+      已读取部分中暂未发现候选标段；但本轮抓取不完整，不能据此认为没有候选，请先处理失败地址。
+      {% endif %}
+    </p>
+    {% endif %}
+  </div>
+
+  <div class="content-card">
+    <div class="card-heading">
+      <div>
+        <p class="eyebrow">待核标段</p>
+        <h3>地点归属不清，需人工确认</h3>
+      </div>
+      <span class="muted-note">缺少上级区划时不猜测归属</span>
+    </div>
+    {% if result.review %}
+    <div class="lot-grid">
+      {% for lot in result.review %}
+      <article class="lot-card lot-review">
+        <header class="lot-head">
+          <span class="lot-badge badge-review">待核</span>
+          <strong>{{ lot.project_no }} · 标段 {{ lot.section_no }}</strong>
+        </header>
+        {% if lot.places %}
+        <ul class="place-list">
+          {% for place in lot.places %}
+          <li>
+            <span class="place-raw">{{ place.raw }}</span>
+            <span class="place-meta">
+              <span class="place-scope">{{ place.scope_label }}</span>
+              {% if place.status == 'unclear' %}<span class="place-region region-warn">{{ place.reason }}</span>
+              {% elif place.region_label %}<span class="place-region region-ok">归属 {{ place.region_label }}</span>{% endif %}
+            </span>
+          </li>
+          {% endfor %}
+        </ul>
+        {% endif %}
+        <p class="lot-reason">{{ lot.reason }}</p>
+        <footer class="lot-foot">
+          <span class="lot-sources">
+            {% for source in lot.sources %}
+            <a href="{{ source.url }}" target="_blank" rel="noopener">来源公告 ↗</a>
+            {% endfor %}
+          </span>
+          {% if lot.check_url %}
+          <a class="button-secondary" href="{{ lot.check_url }}">截标核对 →</a>
+          {% endif %}
+        </footer>
+      </article>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p class="empty-copy">没有待核标段。</p>
+    {% endif %}
+  </div>
+
+  {% if result.outside %}
+  <details class="scope-details">
+    <summary>查看范围外标段（{{ result.outside|length }} 个，仅作核对参考）</summary>
+    <div class="table-wrap">
+      <table class="result-table">
+        <thead>
+          <tr>
+            <th>项目 · 标段</th>
+            <th>履约地点原文</th>
+            <th>说明</th>
+            <th>来源</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for lot in result.outside %}
+          <tr>
+            <td class="nowrap">{{ lot.project_no }} · {{ lot.section_no }}</td>
+            <td>
+              {% for place in lot.places %}
+              <div>{{ place.raw }}{% if place.region_label %}（{{ place.region_label }}）{% endif %}</div>
+              {% endfor %}
+            </td>
+            <td>{{ lot.reason }}</td>
+            <td>
+              {% for source in lot.sources %}
+              <a class="inline-link" href="{{ source.url }}" target="_blank" rel="noopener">打开 ↗</a>
+              {% endfor %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </details>
+  {% endif %}
+
+  <details class="scope-details">
+    <summary>查看本次检索地址（{{ result.searched_pages|length }} 个目录页）</summary>
+    <ul>
+      {% for page in result.searched_pages %}
+      <li><a href="{{ page }}" target="_blank" rel="noopener">{{ page }}</a></li>
+      {% endfor %}
+    </ul>
+    <p>另有 {{ result.detail_page_count }} 个公告详情页已被读取；其中 {{ result.notice_count }} 条为招标（原）公告，纳入地点初筛。</p>
+  </details>
+
+  <div class="result-actions">
+    <a class="button-secondary" href="/screen">换个覆盖范围再筛</a>
+    <span>初筛只按地点过滤，是否可投请以“截标核对”的实时结果为准。本次查询不保存数据。</span>
+  </div>
+</section>
+{% endif %}
+{% endblock %}

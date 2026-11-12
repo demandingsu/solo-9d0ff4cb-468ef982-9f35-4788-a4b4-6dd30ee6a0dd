@@ -23,7 +23,39 @@
     <dd><code>{{ notice.section_no }}</code></dd>
     <dt>公告类型</dt>
     <dd>{{ type_labels[notice.notice_type] }}</dd>
+    {% if notice.place %}
+    <dt>{{ notice.place_label or '项目地点' }}</dt>
+    <dd data-place="{{ notice.place }}">{{ notice.place }}</dd>
+    {% endif %}
+    {% if notice.purchaser_address %}
+    <dt>采购人地址</dt>
+    <dd>{{ notice.purchaser_address }}</dd>
+    {% endif %}
+    {% if notice.agency_address %}
+    <dt>代理机构地址</dt>
+    <dd>{{ notice.agency_address }}</dd>
+    {% endif %}
   </dl>
+
+  {% if notice.lot_places %}
+  <table class="lot-table">
+    <thead>
+      <tr><th>标段/包号</th><th>施工（交付）地点</th></tr>
+    </thead>
+    <tbody>
+      {% for lot in notice.lot_places %}
+      <tr data-section-no="{{ lot.section_no }}">
+        <td><code>{{ lot.section_no }}</code></td>
+        {% if lot.place %}
+        <td data-place="{{ lot.place }}">{{ lot.place }}</td>
+        {% else %}
+        <td>（未单列，沿用项目地点）</td>
+        {% endif %}
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
 
   <div class="notice-body">
     {% for paragraph in notice.body %}

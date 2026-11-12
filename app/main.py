@@ -16,6 +16,7 @@ from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, Field
 
 from .crawler import check_lot, normalize_url
+from .screening import screen_regions
 
 BASE_DIR = Path(__file__).resolve().parent
 DEMO_INTERNAL_URL = os.getenv("DEMO_INTERNAL_URL", "http://localhost:8001").rstrip("/")
@@ -98,7 +99,7 @@ templates.env.filters["public_url"] = public_url_for
 @app.middleware("http")
 async def disable_stale_results(request: Request, call_next):
     response = await call_next(request)
-    if request.url.path in {"/", "/check", "/api/check"} or request.url.path.startswith("/demo"):
+    if request.url.path in {"/", "/check", "/api/check", "/screen", "/api/screen"} or request.url.path.startswith("/demo"):
         response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate"
         response.headers["Pragma"] = "no-cache"
     return response
@@ -110,6 +111,11 @@ class CheckPayload(BaseModel):
     section_no: str = Field(..., description="标段号")
 
 
+class ScreenPayload(BaseModel):
+    list_url: str = Field(..., description="公告目录页地址")
+    coverage: str = Field(..., description="企业覆盖的省/市/区县，每行一个或用顿号、逗号、分号分隔")
+
+
 def _demo_presets() -> list[dict[str, str]]:
     presets = [
         {
@@ -117,14 +123,14 @@ def _demo_presets() -> list[dict[str, str]]:
             "list_url": DEMO_LIST_URL,
             "project_no": "DEMO-2026-001",
             "section_no": "02",
-            "note": "原公告第 1 页，延期公告第 2 页",
+            "note": "原公告第 1 页，延期公告第 4 页",
         },
         {
             "name": "已终止",
             "list_url": DEMO_LIST_URL,
             "project_no": "DEMO-2026-001",
             "section_no": "01",
-            "note": "原公告、延期、终止分处 1/2/3 页；同项目 02 标段不得混入",
+            "note": "原公告、延期、终止分处 1/3/5 页；同项目 02 标段不得混入",
         },
         {
             "name": "不同编号格式",
@@ -145,12 +151,38 @@ def _demo_presets() -> list[dict[str, str]]:
     return presets
 
 
+def _screen_presets() -> list[dict[str, str]]:
+    presets = [
+        {
+            "name": "滨河区 + 西岭县 工程初筛",
+            "list_url": DEMO_LIST_URL,
+            "coverage": "云洲省云州市滨河区\n云洲省云州市西岭县",
+            "note": "跨 4 页招标公告；含多标段、共用地点、多履约地点与地址混淆样例",
+        },
+        {
+            "name": "仅滨河区（更严格）",
+            "list_url": DEMO_LIST_URL,
+            "coverage": "云洲省云州市滨河区",
+            "note": "含西岭县地点的标段转为范围外；缺上级区划的仍列待核",
+        },
+    ]
+    for preset in presets:
+        preset["href"] = "/screen?" + urlencode(
+            {
+                "list_url": preset["list_url"],
+                "coverage": preset["coverage"],
+            }
+        )
+    return presets
+
+
 def _base_context(request: Request) -> dict:
     return {
         "request": request,
         "demo_list_url": DEMO_LIST_URL,
         "demo_public_url": "/demo/notices?page=1",
         "presets": _demo_presets(),
+        "screen_presets": _screen_presets(),
         "demo_available": bool(DEMO_INTERNAL_URL),
     }
 
@@ -233,6 +265,97 @@ async def api_check(
 @app.post("/api/check")
 async def api_check_post(payload: CheckPayload):
     return await _json_result(payload.list_url, payload.project_no, payload.section_no)
+
+
+def _check_url_fn(list_url: str):
+    """Build the deadline-check entry link for one project/lot."""
+
+    def build(project_no: str, section_no: str) -> str:
+        return "/check?" + urlencode(
+            {
+                "list_url": list_url,
+                "project_no": project_no,
+                "section_no": section_no,
+            }
+        )
+
+    return build
+
+
+@app.get("/screen", response_class=HTMLResponse)
+async def screen_page(
+    request: Request,
+    list_url: str = "",
+    coverage: str = "",
+):
+    form = {"list_url": list_url, "coverage": coverage}
+    context = _base_context(request) | {
+        "result": None,
+        "form": form,
+        "form_error": None,
+    }
+    if not list_url.strip() and not coverage.strip():
+        return templates.TemplateResponse(request, "screen.html", context)
+    if not list_url.strip() or not coverage.strip():
+        return templates.TemplateResponse(
+            request,
+            "screen.html",
+            context | {"form_error": "请同时填写公告目录地址和企业覆盖的省/市/区县。"},
+            status_code=400,
+        )
+
+    try:
+        crawl_url = demo_crawl_url(list_url)
+    except ValueError as exc:
+        return templates.TemplateResponse(
+            request,
+            "screen.html",
+            context | {"form_error": str(exc)},
+            status_code=400,
+        )
+
+    outcome = await screen_regions(crawl_url, coverage)
+    if outcome.coverage_error:
+        return templates.TemplateResponse(
+            request,
+            "screen.html",
+            context | {"form_error": outcome.coverage_error},
+            status_code=400,
+        )
+    result = outcome.as_dict(public_url_for, _check_url_fn(list_url))
+    return templates.TemplateResponse(
+        request,
+        "screen.html",
+        context | {"result": result},
+    )
+
+
+async def _json_screen_result(list_url: str, coverage: str) -> JSONResponse:
+    try:
+        crawl_url = demo_crawl_url(list_url)
+    except ValueError as exc:
+        return JSONResponse(
+            {"coverage_error": str(exc), "complete": False}, status_code=400
+        )
+    outcome = await screen_regions(crawl_url, coverage)
+    status_code = 400 if outcome.coverage_error else 200
+    return JSONResponse(
+        outcome.as_dict(public_url_for, _check_url_fn(list_url)),
+        status_code=status_code,
+    )
+
+
+@app.get("/api/screen")
+async def api_screen(
+    list_url: Annotated[str, Query(description="公告目录页地址")],
+    coverage: Annotated[str, Query(description="企业覆盖的省/市/区县")],
+):
+    return await _json_screen_result(list_url, coverage)
+
+
+@app.post("/api/screen")
+async def api_screen_post(payload: ScreenPayload):
+    return await _json_screen_result(payload.list_url, payload.coverage)
 
 
 _ABSOLUTE_LINK_RE = re.compile(r'((?:href|src|action)=["\'])(/(?!/))', re.I)

@@ -308,6 +308,98 @@ def _section_candidates(container: Tag, text: str, title: str) -> list[str]:
     return [value for value in dict.fromkeys(candidates) if value]
 
 
+# ---------------------------------------------------------------------------
+# Performance-place extraction (施工/交付地点)
+# ---------------------------------------------------------------------------
+
+# Only explicit performance-location labels count.  "地址" labels (agency
+# address, purchaser address, contact address) and submission/opening places
+# are deliberately absent from this list.
+PLACE_LABEL_RE = re.compile(
+    r"(?:履约地点|施工地点|工程地点|交付地点|交货地点|供货地点|服务地点|"
+    r"项目地点|建设地点|实施地点|作业地点|服务区域|施工区域|"
+    r"工程所在地|项目所在地)"
+    r"\s*(?:为|是)?\s*[：:]\s*"
+)
+
+# Defence in depth: a location-looking label directly preceded by these words
+# is about submission, opening, or contact — never about where work happens.
+PLACE_FALSE_PREFIX_RE = re.compile(
+    r"(?:递交|提交|上传|接收|开标|获取|领取|报名|购买|查阅|咨询|邮寄|送达|"
+    r"退还|联系|代理机构|采购代理机构|采购人|招标人|招标代理)\s*$"
+)
+
+PLACE_SPLIT_RE = re.compile(r"[、；;\n]+")
+PLACE_VALUE_TRIM = " \t\r\n。，,；;、：:|"
+
+
+@dataclass
+class PlaceInfo:
+    """One performance-location mention found in a notice."""
+
+    raw: str
+    scope: str  # "section" (标段专属) | "notice" (公告共用)
+    section: str | None = None
+
+
+def _split_place_values(value: str) -> list[str]:
+    parts: list[str] = []
+    for piece in PLACE_SPLIT_RE.split(value):
+        cleaned = piece.strip(PLACE_VALUE_TRIM)
+        if cleaned:
+            parts.append(cleaned)
+    return parts
+
+
+def extract_places(container: Tag, text: str) -> list[PlaceInfo]:
+    """Collect performance places from structured markup and body text.
+
+    Structured ``data-place`` attributes win for section scoping: a place
+    element nested under an element carrying ``data-section-no`` (but not the
+    article container itself) belongs to that section; anything else is a
+    notice-level shared place.  Text labels only ever produce notice-level
+    places, because a bare paragraph cannot be attributed to one section.
+    """
+
+    places: list[PlaceInfo] = []
+
+    for tag in container.find_all(attrs={"data-place": True}):
+        value = str(tag.get("data-place") or "").strip()
+        if not value:
+            continue
+        scope = "notice"
+        section: str | None = None
+        node: Tag | None = tag
+        while node is not None and node is not container:
+            marker = node.get("data-section-no") if hasattr(node, "get") else None
+            if marker:
+                scope = "section"
+                section = str(marker)
+                break
+            node = node.parent
+        for raw in _split_place_values(value):
+            places.append(PlaceInfo(raw=raw, scope=scope, section=section))
+
+    for match in PLACE_LABEL_RE.finditer(text):
+        prefix = text[max(0, match.start() - 8) : match.start()]
+        if PLACE_FALSE_PREFIX_RE.search(prefix):
+            continue
+        segment = text[match.end() : match.end() + 160]
+        segment = segment.split("\n", 1)[0]
+        for raw in _split_place_values(segment):
+            places.append(PlaceInfo(raw=raw, scope="notice", section=None))
+
+    deduped: list[PlaceInfo] = []
+    seen: set[tuple[str, str, str | None]] = set()
+    for place in places:
+        key = (normalize_width(place.raw), place.scope, place.section)
+        if key in seen:
+            continue
+        seen.add(key)
+        deduped.append(place)
+    return deduped
+
+
 DEADLINE_LABEL_RE = re.compile(
     r"(?:"
     r"电子投标文件(?:递交|提交|上传|接收)?(?:的)?截止时间|"
@@ -543,6 +635,7 @@ class ParsedNotice:
     is_postponement: bool
     deadline: DeadlineInfo
     text: str
+    places: list[PlaceInfo] = field(default_factory=list)
 
 
 def parse_notice_html(html: str, url: str, date_hint: str | None = None) -> ParsedNotice:
@@ -600,6 +693,8 @@ def parse_notice_html(html: str, url: str, date_hint: str | None = None) -> Pars
     )
     deadline = extract_deadline(text, notice_type, is_postponement, deadline_data)
 
+    places = extract_places(container, text)
+
     return ParsedNotice(
         url=url,
         title=title,
@@ -612,6 +707,7 @@ def parse_notice_html(html: str, url: str, date_hint: str | None = None) -> Pars
         is_postponement=is_postponement,
         deadline=deadline,
         text=text,
+        places=places,
     )
 
 
